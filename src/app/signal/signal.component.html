@@ -1,0 +1,37 @@
+<p>Gestion des produits Angular Signals</p>
+
+<div>
+  <span>Filtrer par catégorie :</span>
+  @for (f of filters(); track $index) {
+  <button (click)="currentFilter.set(f)">{{ f }}</button>
+  }
+</div>
+
+<div>
+  <h2>Produits disponibles</h2>
+  <ul>
+    @for (product of filteredProducts(); track product.id) {
+    <li>
+      <span>{{ product.name }}</span>
+      <span>{{ product.price }} €</span>
+
+      <button (click)="addToCart(product)">Ajouter au panier</button>
+    </li>
+    }
+  </ul>
+</div>
+
+<div>
+  <h2>Panier</h2>
+  <ul>
+    @for (cartProduct of cart(); track $index) {
+    <li>
+      <span>{{ cartProduct.name }}</span>
+      <span>{{ cartProduct.price }} €</span>
+
+      <button (click)="removeToCart($index)">Retirer au panier</button>
+    </li>
+    }
+  </ul>
+  <span>Total : {{ total() }} €</span>
+</div>
