@@ -1,9 +1,18 @@
-import {Component, computed, DestroyRef, effect, inject, OnInit, signal} from '@angular/core';
+import {
+  Component,
+  computed,
+  DestroyRef,
+  effect,
+  inject,
+  OnInit,
+  signal,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
-import {Product} from "../models/products.model";
-import {ProductsService} from "../products.service";
-import {tap} from "rxjs";
-import {takeUntilDestroyed} from "@angular/core/rxjs-interop";
+import { Product } from '../models/products.model';
+import { ProductsService } from '../services/products.service';
+import { tap } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { E_FILTER } from '../models/filters.enum';
 
 @Component({
   selector: 'app-signal',
@@ -13,19 +22,18 @@ import {takeUntilDestroyed} from "@angular/core/rxjs-interop";
   styleUrl: './signal.component.scss',
 })
 export class SignalComponent implements OnInit {
-
   public products = signal<Product[]>([]);
   public cart = signal<Product[]>([]);
-  public currentFilter = signal('All');
-  public filters = signal(['All', 'Electronics', 'Fashion']);
+  public currentFilter = signal(E_FILTER.ALL);
+  public filters = signal<E_FILTER[]>([]);
 
-  public total = computed(
-    () => this.cart().reduce((total, product) => total + product.price, 0)
+  public total = computed(() =>
+    this.cart().reduce((total, product) => total + product.price, 0)
   );
 
   public filteredProducts = computed(() => {
     const filter = this.currentFilter();
-    if (filter === 'All') {
+    if (filter === E_FILTER.ALL) {
       return this.products();
     }
 
@@ -37,21 +45,26 @@ export class SignalComponent implements OnInit {
 
   constructor() {
     effect(() => {
-      this.productsService.saveCart(this.cart())
+      this.productsService.saveCart(this.cart());
     });
   }
 
   ngOnInit() {
+    this.productsService
+      .loadProducts()
+      .pipe(
+        tap((products) => this.products.set(products)),
+        takeUntilDestroyed(this._destroyRef)
+      )
+      .subscribe();
 
-    this.productsService.loadProducts().pipe(
-      tap(products => this.products.set(products)),
-      takeUntilDestroyed(this._destroyRef)
-    ).subscribe();
-
-    this.productsService.loadFilters().pipe(
-      tap(filters => this.filters.set(filters)),
-      takeUntilDestroyed(this._destroyRef)
-    ).subscribe();
+    this.productsService
+      .loadFilters()
+      .pipe(
+        tap((filters) => this.filters.set(filters)),
+        takeUntilDestroyed(this._destroyRef)
+      )
+      .subscribe();
   }
 
   public addToCart(product: Product): void {
