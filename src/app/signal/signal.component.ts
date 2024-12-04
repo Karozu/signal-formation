@@ -1,12 +1,9 @@
-import { Component, computed, effect, signal } from '@angular/core';
+import {Component, computed, DestroyRef, effect, inject, OnInit, signal} from '@angular/core';
 import { CommonModule } from '@angular/common';
-
-export interface Product {
-  id: number;
-  price: number;
-  category: string;
-  name: string;
-}
+import {Product} from "../models/products.model";
+import {ProductsService} from "../products.service";
+import {tap} from "rxjs";
+import {takeUntilDestroyed} from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'app-signal',
@@ -15,26 +12,16 @@ export interface Product {
   templateUrl: './signal.component.html',
   styleUrl: './signal.component.scss',
 })
-export class SignalComponent {
-  public products = signal<Product[]>([
-    { id: 1, name: 'Laptop', price: 1200, category: 'Electronics' },
-    { id: 2, name: 'Phone', price: 800, category: 'Electronics' },
-    { id: 3, name: 'Shoes', price: 150, category: 'Fashion' },
-    { id: 4, name: 'Watch', price: 200, category: 'Fashion' },
-  ]).asReadonly();
+export class SignalComponent implements OnInit {
 
+  public products = signal<Product[]>([]);
   public cart = signal<Product[]>([]);
+  public currentFilter = signal('All');
+  public filters = signal(['All', 'Electronics', 'Fashion']);
 
-  public currentFilter = signal<string>('All');
-  public filters = signal<string[]>(['All', 'Electronics', 'Fashion']);
-
-  public total = computed(() => {
-    let total = 0;
-    this.cart().forEach((p) => {
-      total += p.price;
-    });
-    return total;
-  });
+  public total = computed(
+    () => this.cart().reduce((total, product) => total + product.price, 0)
+  );
 
   public filteredProducts = computed(() => {
     const filter = this.currentFilter();
@@ -45,25 +32,37 @@ export class SignalComponent {
     return this.products().filter((p) => p.category === filter);
   });
 
+  private readonly _destroyRef = inject(DestroyRef);
+  private readonly productsService = inject(ProductsService);
+
   constructor() {
-    // erreur de compilation car n'est pas un WritableSignal
-    // this.products.set([]);
-    // this.products.update(() => []);
     effect(() => {
-      console.log(
-        'Appel vers une api pour enregistrer les données de notre panier :',
-        this.cart()
-      );
+      this.productsService.saveCart(this.cart())
     });
+  }
+
+  ngOnInit() {
+
+    this.productsService.loadProducts().pipe(
+      tap(products => this.products.set(products)),
+      takeUntilDestroyed(this._destroyRef)
+    ).subscribe();
+
+    this.productsService.loadFilters().pipe(
+      tap(filters => this.filters.set(filters)),
+      takeUntilDestroyed(this._destroyRef)
+    ).subscribe();
   }
 
   public addToCart(product: Product): void {
     this.cart.update((cart) => [...cart, product]);
   }
 
-  public removeToCart(index: number): void {
-    const cart = [...this.cart()];
-    cart.splice(index, 1);
-    this.cart.update(() => cart);
+  public removeFromCart(index: number): void {
+    this.cart.update((cart) => {
+      const result = [...cart];
+      result.splice(index, 1);
+      return result;
+    });
   }
 }
